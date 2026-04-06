@@ -1,3 +1,4 @@
+raise Exception("CANDIDATES FILE IS LOADED")
 print("CANDIDATES FILE LOADED")
 def render_candidates_page():
     import streamlit as st
