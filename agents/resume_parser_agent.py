@@ -7,12 +7,13 @@ class ResumeParserAgent(BaseAgent):
         super().__init__("ResumeParserAgent")
     
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        print("🔥 PARSER RUNNING 🔥")
+        print("🔥 PARSER EXECUTED 🔥")
 
         resume_content = input_data.get('resume_content', '')
 
+        # 🔴 HARD TEST (to verify deployment)
         if not resume_content:
-            return self._fallback_response()
+            return self._test_output()
 
         # 🔥 DIRECT EXTRACTION (NO AI)
         name = self._extract_name(resume_content)
@@ -34,15 +35,33 @@ class ResumeParserAgent(BaseAgent):
             "status": "success",
             "candidate_data": candidate_data,
             "confidence_scores": {
-                "personal_info": 0.8,
-                "skills": 0.7
+                "personal_info": 0.9,
+                "skills": 0.8
             }
+        }
+
+    # =========================
+    # 🔥 TEST OUTPUT (CRITICAL)
+    # =========================
+    def _test_output(self):
+        return {
+            "status": "success",
+            "candidate_data": {
+                "personal_info": {
+                    "name": "🔥 TEST NAME WORKING 🔥",
+                    "email": "test@test.com",
+                    "phone": ""
+                },
+                "work_experience": [],
+                "education": [],
+                "skills": ["Python", "AI"]
+            },
+            "confidence_scores": {}
         }
 
     # =========================
     # HELPERS
     # =========================
-
     def _extract_email(self, text: str) -> str:
         match = re.search(r'[\w\.-]+@[\w\.-]+', text)
         return match.group(0) if match else ""
@@ -53,6 +72,7 @@ class ResumeParserAgent(BaseAgent):
         for line in lines[:10]:
             clean = line.strip()
 
+            # skip email lines
             if "@" in clean or "email" in clean.lower():
                 continue
 
@@ -65,8 +85,8 @@ class ResumeParserAgent(BaseAgent):
 
     def _extract_skills(self, text: str) -> list:
         common_skills = [
-            "python", "java", "aws", "docker", "ml", "ai",
-            "react", "sql", "tensorflow", "pandas"
+            "python", "java", "aws", "docker",
+            "ml", "ai", "react", "sql"
         ]
 
         found = []
@@ -77,19 +97,3 @@ class ResumeParserAgent(BaseAgent):
                 found.append(skill.capitalize())
 
         return found
-
-    def _fallback_response(self):
-        return {
-            "status": "success",
-            "candidate_data": {
-                "personal_info": {
-                    "name": "Candidate",
-                    "email": "",
-                    "phone": ""
-                },
-                "work_experience": [],
-                "education": [],
-                "skills": []
-            },
-            "confidence_scores": {}
-        }
