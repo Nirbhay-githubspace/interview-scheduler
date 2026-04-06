@@ -11,8 +11,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import pages
-from dashboard.pages import render_home_page, render_candidates_page, render_interviews_page
-from dashboard.pages.jobs import render_jobs_page
+from dashboard.views import render_home_page, render_candidates_page, render_interviews_page
+from dashboard.views.jobs import render_jobs_page
 
 # Page config
 st.set_page_config(
