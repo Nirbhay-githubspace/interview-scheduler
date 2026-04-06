@@ -7,11 +7,13 @@ import os
 class BaseAgent(ABC):
     """Base class for all agents using Google Generative AI"""
     
-    def __init__(self, name: str, model: str = "gemini-1.5-flash"):
+    def __init__(self, name: str):
         self.name = name
-        self.model = model
         self.logger = logging.getLogger(name)
-        
+
+        # 🔥 FORCE MODEL HERE (NO OVERRIDE POSSIBLE)
+        self.model = "gemini-1.5-flash"
+
         # Configure API key
         api_key = os.getenv('GOOGLE_API_KEY')
         if not api_key:
@@ -29,11 +31,11 @@ class BaseAgent(ABC):
         system_instruction: str,
         temperature: float = 1.0
     ) -> str:
-        """Generate response using Google Generative AI"""
         try:
-            # 🔥 FORCE WORKING MODEL
+            print("🔥 USING MODEL: gemini-1.5-flash 🔥")
+
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",   # ✅ HARD FIX
+                model_name="gemini-1.5-flash",  # 🔥 HARD LOCK
                 system_instruction=system_instruction,
                 generation_config=genai.GenerationConfig(
                     temperature=temperature,
@@ -41,13 +43,11 @@ class BaseAgent(ABC):
             )
             
             response = model.generate_content(prompt)
-            
-            # ✅ SAFE RETURN
             return response.text if hasattr(response, "text") else ""
             
         except Exception as e:
             self.log_error(f"Error generating response: {str(e)}")
-            return ""   # ❗ DO NOT CRASH
+            return ""
     
     async def _generate_response_with_tools(
         self,
@@ -56,10 +56,11 @@ class BaseAgent(ABC):
         tools: list,
         temperature: float = 1.0
     ) -> Dict[str, Any]:
-        """Generate response with tool usage"""
         try:
+            print("🔥 USING MODEL (TOOLS): gemini-1.5-flash 🔥")
+
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",  # ✅ FIXED
+                model_name="gemini-1.5-flash",  # 🔥 HARD LOCK
                 system_instruction=system_instruction,
                 tools=tools,
                 generation_config=genai.GenerationConfig(
@@ -69,25 +70,14 @@ class BaseAgent(ABC):
             
             response = model.generate_content(prompt)
             
-            tool_calls = []
-            if hasattr(response, 'candidates'):
-                for candidate in response.candidates:
-                    if hasattr(candidate.content, 'parts'):
-                        for part in candidate.content.parts:
-                            if hasattr(part, 'function_call'):
-                                tool_calls.append({
-                                    'name': part.function_call.name,
-                                    'args': dict(part.function_call.args)
-                                })
-            
             return {
                 'text': response.text if hasattr(response, 'text') else '',
-                'tool_calls': tool_calls
+                'tool_calls': []
             }
             
         except Exception as e:
             self.log_error(f"Error generating response with tools: {str(e)}")
-            return {"text": "", "tool_calls": []}  # ❗ SAFE FALLBACK
+            return {"text": "", "tool_calls": []}
     
     def log_info(self, message: str):
         self.logger.info(f"[{self.name}] {message}")
