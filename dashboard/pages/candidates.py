@@ -1,17 +1,62 @@
-raise Exception("CANDIDATES FILE IS LOADED")
-print("CANDIDATES FILE LOADED")
+import streamlit as st
+
 def render_candidates_page():
-    import streamlit as st
+    st.title("👥 Candidates")
 
-    st.title("👥 Candidates Page")
+    # 🔥 FORCE EXECUTION CONFIRMATION
+    st.write("✅ Candidates page loaded successfully")
 
-    st.success("✅ FUNCTION IS RUNNING")
+    tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
 
-    st.write("If you can see this, routing is correct.")
+    # =========================
+    # TAB 1
+    # =========================
+    with tab1:
+        st.subheader("Candidate Rankings")
 
-    st.markdown("---")
+        candidates = st.session_state.get("candidates", [])
 
-    # Force something visible
-    st.button("Test Button")
+        if not candidates:
+            st.info("No candidates yet. Upload resumes to see results.")
+        else:
+            candidates = sorted(
+                candidates,
+                key=lambda x: x.get("overall_score", 0),
+                reverse=True
+            )
 
-    st.write("End of page")
+            st.success(f"🏆 Top Candidate: {candidates[0]['name']}")
+
+            for c in candidates:
+                st.markdown(f"### {c.get('name')}")
+                st.write(f"Score: {c.get('overall_score')}%")
+                st.progress(c.get("overall_score", 0) / 100)
+                st.divider()
+
+    # =========================
+    # TAB 2
+    # =========================
+    with tab2:
+        st.subheader("Upload Resumes")
+
+        uploaded_files = st.file_uploader(
+            "Upload resumes",
+            type=["pdf", "docx"],
+            accept_multiple_files=True
+        )
+
+        if uploaded_files:
+            st.success(f"{len(uploaded_files)} file(s) selected")
+
+            if st.button("Process"):
+                st.info("Processing...")
+
+                # FAKE DATA (TEMP TEST)
+                st.session_state["candidates"] = [
+                    {
+                        "name": "Test Candidate",
+                        "overall_score": 85
+                    }
+                ]
+
+                st.rerun()
