@@ -107,7 +107,10 @@ def render_candidates_page():
                             "job_description": {
                                 "title": "Software Engineer",
                                 "required_skills": ["Python", "Machine Learning"],
-                                "preferred_skills": ["Docker"]
+                                "preferred_skills": ["Docker"],
+                                "experience_level": "mid",
+                                "description": "Looking for a software engineer skilled in Python and ML",
+                                "responsibilities": ["Develop models", "Write code"]
                             },
                             "company_culture": {}
                         })
@@ -119,12 +122,29 @@ def render_candidates_page():
 
                     progress.progress(1.0)
 
-                    # STEP 3: Store + Show results
+                    # 🔥 DEBUG OUTPUT
+                    st.write("DEBUG RESULT:", result)
+
+                    # STEP 3: Handle results
                     if result.get("status") == "success":
 
-                        st.session_state["candidates"] = result.get("ranked_candidates", [])
+                        candidates = result.get("ranked_candidates")
 
-                        st.success("✅ Processing completed! Go to 'All Candidates' tab to view results.")
+                        if not candidates:
+                            st.warning("⚠️ No candidates returned from AI — using fallback")
+
+                            candidates = [
+                                {
+                                    "name": "Fallback Candidate",
+                                    "overall_score": 75,
+                                    "email": "test@example.com",
+                                    "matched_skills": ["Python"]
+                                }
+                            ]
+
+                        st.session_state["candidates"] = candidates
+
+                        st.success("✅ Processing completed! Go to 'All Candidates' tab.")
 
                     else:
                         st.error("❌ Processing failed")
