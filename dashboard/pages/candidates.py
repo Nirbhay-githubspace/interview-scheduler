@@ -18,12 +18,47 @@ with tab1:
     if not candidates:
         st.info("No candidates yet. Upload resumes to see results.")
     else:
+        # Sort candidates by score
+        candidates = sorted(
+            candidates,
+            key=lambda x: x.get("overall_score", 0),
+            reverse=True
+        )
+
+        # Highlight top candidate
+        top = candidates[0]
+        st.success(f"🏆 Top Candidate: {top.get('name')} ({top.get('overall_score')}%)")
+
+        # Display candidates
         for c in candidates:
-            st.markdown(f"### {c.get('name', 'Unknown')}")
-            st.write(f"Score: {c.get('overall_score', 0)}%")
-            st.write(f"Skills: {c.get('skills_match_score', 0)}%")
-            st.write(f"Cultural Fit: {c.get('cultural_fit_score', 0)}%")
-            st.write("---")
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.subheader(c.get("name", "Unknown"))
+                    st.write(f"📧 {c.get('email', 'N/A')}")
+
+                    st.write("**Matched Skills:**")
+                    skills = c.get("matched_skills", [])
+
+                    if skills:
+                        st.write(", ".join(skills[:5]))
+                    else:
+                        st.write("No matched skills")
+
+                    # 🎯 Tier badge
+                    tier = c.get("tier", "unknown").replace("_", " ").title()
+                    st.write(f"🎯 Tier: {tier}")
+
+                with col2:
+                    st.metric("Overall", f"{c.get('overall_score', 0)}%")
+                    st.metric("Skills", f"{c.get('skills_match_score', 0)}%")
+                    st.metric("Fit", f"{c.get('cultural_fit_score', 0)}%")
+
+                # 📊 Progress bar
+                st.progress(c.get("overall_score", 0) / 100)
+
+                st.divider()
 
 # =========================
 # TAB 2: UPLOAD
@@ -113,5 +148,9 @@ with tab2:
                         st.success("✅ Processing complete!")
 
                         st.session_state["candidates"] = result.get("ranked_candidates", [])
+
+                        # 🔥 auto refresh UI
+                        st.rerun()
+
                     else:
                         st.error("Processing failed")
