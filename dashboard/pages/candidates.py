@@ -1,10 +1,10 @@
 import streamlit as st
-from dashboard.components import render_candidate_card, render_ranking_table, render_candidate_detail
+
 
 def render_candidates_page():
     st.title("👥 Candidates")
 
-    tab1, tab2, tab3 = st.tabs(["📋 All Candidates", "📤 Upload Resumes", "🔍 Advanced Search"])
+    tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
 
     with tab1:
         render_candidates_list()
@@ -12,57 +12,58 @@ def render_candidates_page():
     with tab2:
         render_upload_interface()
 
-    with tab3:
-        render_advanced_search()
 
-
+# =========================
+# ✅ FIXED LIST VIEW
+# =========================
 def render_candidates_list():
-    from dashboard.services import get_candidates
-
     st.markdown("### Candidate Rankings")
-    candidates = get_candidates()
 
-    view_type = st.radio("View Type", ["Table View", "Card View"], horizontal=True)
+    # 🔥 NO DATABASE (fix blank screen)
+    candidates = st.session_state.get("candidates", [])
 
-    if view_type == "Table View":
-        render_ranking_table(candidates, show_filters=True)
-    else:
-        st.markdown("---")
-        for candidate in candidates:
-            render_candidate_card(candidate)
+    if not candidates:
+        st.info("No candidates yet. Upload resumes to see results.")
+        return
+
+    for c in candidates:
+        st.markdown(f"### {c['name']}")
+        st.write(f"Score: {c['overall_score']}%")
+        st.write(f"Skills: {c['skills_match_score']}%")
+        st.write(f"Cultural Fit: {c['cultural_fit_score']}%")
+        st.write("---")
 
 
+# =========================
+# ✅ UPLOAD UI
+# =========================
 def render_upload_interface():
     st.markdown("### Upload Candidate Resumes")
 
     from pathlib import Path
     import json
 
-    jobs_list_file = Path("data/jobs/jobs_list.json")
+    jobs_file = Path("data/jobs/jobs_list.json")
 
-    if not jobs_list_file.exists():
-        st.warning("⚠️ Create a job first in Jobs page")
+    if not jobs_file.exists():
+        st.warning("Create a job first in Jobs page")
         return
 
-    with open(jobs_list_file, 'r') as f:
+    with open(jobs_file) as f:
         jobs = json.load(f)
 
-    if not jobs:
-        st.warning("⚠️ No jobs found")
-        return
-
-    job_options = {job['id']: job['title'] for job in jobs}
+    job_options = {job["id"]: job["title"] for job in jobs}
 
     job_id = st.selectbox(
         "Select Job",
         options=list(job_options.keys()),
-        format_func=lambda x: job_options[x]
+        format_func=lambda x: job_options[x],
     )
 
     uploaded_files = st.file_uploader(
         "Upload resumes",
         type=["pdf", "docx"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
     )
 
     if uploaded_files:
@@ -71,7 +72,7 @@ def render_upload_interface():
         for f in uploaded_files:
             st.write(f"📄 {f.name}")
 
-        if st.button("🚀 Process Resumes", use_container_width=True):
+        if st.button("🚀 Process Resumes"):
 
             st.success("Processing started... please wait ⏳")
 
@@ -79,33 +80,29 @@ def render_upload_interface():
             status = st.empty()
 
             try:
-                status.text("Step 1: Saving files...")
-                progress.progress(20)
+                status.text("Saving files...")
+                progress.progress(30)
 
-                process_uploaded_resumes(uploaded_files, job_id)
-
-                status.text("Step 2: AI Processing...")
-                progress.progress(70)
+                results = process_uploaded_resumes(uploaded_files, job_id)
 
                 progress.progress(100)
                 status.text("✅ Done!")
+
+                # 🔥 Store in session (fix blank page)
+                st.session_state["candidates"] = results
+
+                st.success("Candidates processed successfully!")
 
             except Exception as e:
                 st.error(str(e))
 
 
-def render_advanced_search():
-    st.markdown("Advanced search coming soon 🚧")
-
-
 # =========================
-# 🔥 FIXED PROCESS FUNCTION
+# 🔥 PROCESS FUNCTION
 # =========================
-
 def process_uploaded_resumes(files, job_id):
     import asyncio
     from pathlib import Path
-    from datetime import datetime
     import json
 
     from tools.pdf_parser import extract_text_from_pdf
@@ -119,15 +116,15 @@ def process_uploaded_resumes(files, job_id):
     with open(jobs_file) as f:
         jobs = json.load(f)
 
-    job_data = next((j for j in jobs if j['id'] == job_id), None)
+    job_data = next((j for j in jobs if j["id"] == job_id), None)
 
     job_description = {
-        'title': job_data.get('title'),
-        'required_skills': job_data.get('requirements', {}).get('required_skills', []),
-        'preferred_skills': job_data.get('requirements', {}).get('preferred_skills', [])
+        "title": job_data.get("title"),
+        "required_skills": job_data.get("requirements", {}).get("required_skills", []),
+        "preferred_skills": job_data.get("requirements", {}).get("preferred_skills", []),
     }
 
-    company_culture = job_data.get('company_culture', {})
+    company_culture = job_data.get("company_culture", {})
 
     resumes = []
 
@@ -146,7 +143,7 @@ def process_uploaded_resumes(files, job_id):
 
         resumes.append({
             "filename": file.name,
-            "resume_content": text
+            "resume_content": text,
         })
 
     orchestrator = OrchestratorAgent()
@@ -155,7 +152,7 @@ def process_uploaded_resumes(files, job_id):
         return await orchestrator.process({
             "resumes": resumes,
             "job_description": job_description,
-            "company_culture": company_culture
+            "company_culture": company_culture,
         })
 
     result = asyncio.run(run())
@@ -163,11 +160,8 @@ def process_uploaded_resumes(files, job_id):
     if result["status"] == "success":
         st.success("✅ Processing complete!")
 
-        for c in result["ranked_candidates"]:
-            st.markdown(f"### {c['name']}")
-            st.write(f"Score: {c['overall_score']}%")
-            st.write(f"Skills: {c['skills_match_score']}%")
-            st.write(f"Fit: {c['cultural_fit_score']}%")
-            st.write("---")
+        return result["ranked_candidates"]
+
     else:
         st.error("Processing failed")
+        return []
