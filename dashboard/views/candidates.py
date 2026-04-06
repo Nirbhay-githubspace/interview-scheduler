@@ -68,26 +68,40 @@ def render_candidates_page():
                 progress = st.progress(0)
 
                 try:
+                    import os
+                    import asyncio
                     from tools.pdf_parser import extract_text_from_pdf
                     from tools.docx_parser import extract_text_from_docx
                     from agents.orchestrator_agent import OrchestratorAgent
-                    import asyncio
 
                     resumes = []
+
+                    # ✅ FIXED: proper temp directory
+                    upload_dir = "temp_uploads"
+                    os.makedirs(upload_dir, exist_ok=True)
 
                     # STEP 1: Extract text
                     for i, file in enumerate(uploaded_files):
                         st.write(f"📄 Processing: {file.name}")
 
-                        path = file.name
+                        path = os.path.join(upload_dir, file.name)
 
                         with open(path, "wb") as f:
                             f.write(file.getbuffer())
 
+                        # Extract text
                         if file.name.endswith(".pdf"):
                             text = extract_text_from_pdf(path)
                         else:
                             text = extract_text_from_docx(path)
+
+                        # 🔍 DEBUG TEXT LENGTH
+                        st.write(f"Extracted text length: {len(text)}")
+
+                        # ❌ Handle bad extraction
+                        if not text or len(text.strip()) < 50:
+                            st.error(f"❌ Failed to extract usable text from {file.name}")
+                            continue
 
                         resumes.append({
                             "filename": file.name,
@@ -95,6 +109,10 @@ def render_candidates_page():
                         })
 
                         progress.progress((i + 1) / len(uploaded_files) * 0.4)
+
+                    if not resumes:
+                        st.error("❌ No valid resumes to process")
+                        return
 
                     st.write("✅ Resume parsing complete")
 
@@ -122,27 +140,18 @@ def render_candidates_page():
 
                     progress.progress(1.0)
 
-                    # 🔥 DEBUG OUTPUT
+                    # 🔍 DEBUG RESULT
                     st.write("DEBUG RESULT:", result)
 
-                    # STEP 3: Handle results
+                    # STEP 3: Store results
                     if result.get("status") == "success":
 
                         candidates = result.get("ranked_candidates")
 
                         if not candidates:
-                            st.warning("⚠️ No candidates returned from AI — using fallback")
+                            st.warning("⚠️ No candidates returned from AI")
 
-                            candidates = [
-                                {
-                                    "name": "Fallback Candidate",
-                                    "overall_score": 75,
-                                    "email": "test@example.com",
-                                    "matched_skills": ["Python"]
-                                }
-                            ]
-
-                        st.session_state["candidates"] = candidates
+                        st.session_state["candidates"] = candidates or []
 
                         st.success("✅ Processing completed! Go to 'All Candidates' tab.")
 
