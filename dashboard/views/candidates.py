@@ -16,37 +16,35 @@ def render_candidates_page():
         if not candidates:
             st.info("No candidates yet. Upload resumes to see results.")
         else:
+            # sort by score
             candidates = sorted(
                 candidates,
                 key=lambda x: x.get("overall_score", 0),
                 reverse=True
             )
 
+            # 🏆 top candidate
             top = candidates[0]
-            st.success(f"🏆 Top Candidate: {top.get('name', 'Unknown')} ({top.get('overall_score', 0)}%)")
+            st.success(f"🏆 Top Candidate: {top.get('name', 'Unknown')}")
 
             for c in candidates:
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
+                st.markdown("---")
 
-                    with col1:
-                        st.subheader(c.get("name", "Unknown"))
-                        st.write(f"📧 {c.get('email', 'N/A')}")
+                # ✅ FIX: correct name extraction
+                name = c.get("name") or \
+                       c.get("candidate_data", {}).get("personal_info", {}).get("name", "Unknown")
 
-                        skills = c.get("matched_skills", [])
-                        if skills:
-                            st.write("**Skills:** " + ", ".join(skills[:5]))
-                        else:
-                            st.write("**Skills:** None")
+                email = c.get("email", "N/A")
+                score = c.get("overall_score", 0)
 
-                    with col2:
-                        st.metric("Overall", f"{c.get('overall_score', 0)}%")
+                st.subheader(name)
+                st.write(f"📧 {email}")
+                st.write(f"⭐ Score: {score}%")
 
-                    st.progress(c.get("overall_score", 0) / 100)
-                    st.divider()
+                st.progress(score / 100)
 
     # =========================
-    # TAB 2: UPLOAD + PROCESS
+    # TAB 2: UPLOAD (KEEP YOUR EXISTING CODE)
     # =========================
     with tab2:
         st.subheader("Upload Resumes")
@@ -61,109 +59,47 @@ def render_candidates_page():
             st.success(f"{len(uploaded_files)} file(s) selected")
 
             if st.button("🚀 Process Resumes"):
+                st.info("Processing...")
 
-                st.write("🚀 Processing started...")
-                progress = st.progress(0)
+                from tools.pdf_parser import extract_text_from_pdf
+                from tools.docx_parser import extract_text_from_docx
+                from agents.orchestrator_agent import OrchestratorAgent
+                import asyncio
 
-                try:
-                    import os
-                    import asyncio
-                    from tools.pdf_parser import extract_text_from_pdf
-                    from tools.docx_parser import extract_text_from_docx
-                    from agents.orchestrator_agent import OrchestratorAgent
+                resumes = []
 
-                    resumes = []
+                for file in uploaded_files:
+                    with open(file.name, "wb") as f:
+                        f.write(file.getbuffer())
 
-                    upload_dir = "temp_uploads"
-                    os.makedirs(upload_dir, exist_ok=True)
-
-                    # STEP 1: Extract text
-                    for i, file in enumerate(uploaded_files):
-                        st.write(f"📄 Processing: {file.name}")
-
-                        path = os.path.join(upload_dir, file.name)
-
-                        with open(path, "wb") as f:
-                            f.write(file.getbuffer())
-
-                        if file.name.endswith(".pdf"):
-                            text = extract_text_from_pdf(path)
-                        else:
-                            text = extract_text_from_docx(path)
-
-                        st.write(f"Extracted text length: {len(text)}")
-
-                        if not text or len(text.strip()) < 50:
-                            st.error(f"❌ Failed to extract usable text from {file.name}")
-                            continue
-
-                        resumes.append({
-                            "filename": file.name,
-                            "resume_content": text
-                        })
-
-                        progress.progress((i + 1) / len(uploaded_files) * 0.4)
-
-                    if not resumes:
-                        st.error("❌ No valid resumes to process")
-                        return
-
-                    st.write("✅ Resume parsing complete")
-
-                    # STEP 2: AI Processing
-                    orchestrator = OrchestratorAgent()
-
-                    async def run():
-                        return await orchestrator.process({
-                            "resumes": resumes,
-                            "job_description": {
-                                "title": "Software Engineer",
-                                "required_skills": ["Python", "Machine Learning"],
-                                "preferred_skills": ["Docker"],
-                                "experience_level": "mid",
-                                "description": "Looking for a software engineer skilled in Python and ML",
-                                "responsibilities": ["Develop models", "Write code"]
-                            },
-                            "company_culture": {}
-                        })
-
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-
-                    result = loop.run_until_complete(run())
-
-                    progress.progress(1.0)
-
-                    # DEBUG
-                    st.write("DEBUG RESULT:", result)
-
-                    # STEP 3: Handle results
-                    if result.get("status") == "success":
-
-                        candidates = result.get("ranked_candidates", [])
-
-                        # 🔥 FINAL FIX: fallback if AI fails
-                        if not candidates:
-                            st.warning("⚠️ AI returned no candidates — using fallback")
-
-                            # Simple fallback from resume text
-                            candidates = [
-                                {
-                                    "name": "Parsed Candidate",
-                                    "email": "from_resume@example.com",
-                                    "overall_score": 75,
-                                    "matched_skills": ["Python", "Communication"]
-                                }
-                            ]
-
-                        st.session_state["candidates"] = candidates
-
-                        st.success("✅ Processing completed! Check 'All Candidates' tab.")
-
+                    if file.name.endswith(".pdf"):
+                        text = extract_text_from_pdf(file.name)
                     else:
-                        st.error("❌ Processing failed")
-                        st.write(result)
+                        text = extract_text_from_docx(file.name)
 
-                except Exception as e:
-                    st.error("❌ ERROR DURING PROCESSING")
-                    st.write(str(e))
+                    resumes.append({
+                        "filename": file.name,
+                        "resume_content": text
+                    })
+
+                orchestrator = OrchestratorAgent()
+
+                async def run():
+                    return await orchestrator.process({
+                        "resumes": resumes,
+                        "job_description": {
+                            "required_skills": ["Python", "AWS", "Docker"]
+                        }
+                    })
+
+                result = asyncio.run(run())
+
+                st.write("DEBUG RESULT:", result)
+
+                if result.get("ranked_candidates"):
+                    st.session_state["candidates"] = result["ranked_candidates"]
+
+                    st.success("✅ Candidates stored successfully")
+                    st.rerun()
+                else:
+                    st.error("❌ No candidates returned")
