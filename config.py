@@ -65,7 +65,7 @@ class Config:
     EXPERIENCE_WEIGHT = float(os.getenv('EXPERIENCE_WEIGHT', '0.1'))
 
     # Model Configuration
-    DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gemini-2.0-flash-exp')
+    DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gemini-1.5-flash')
 
     @classmethod
     def validate(cls):
