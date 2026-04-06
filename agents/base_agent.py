@@ -7,7 +7,7 @@ import os
 class BaseAgent(ABC):
     """Base class for all agents using Google Generative AI"""
     
-    def __init__(self, name: str, model: str = "gemini-1.5-flash"):  # ✅ FIXED MODEL
+    def __init__(self, name: str, model: str = "gemini-1.5-flash"):
         self.name = name
         self.model = model
         self.logger = logging.getLogger(name)
