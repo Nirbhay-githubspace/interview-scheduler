@@ -18,15 +18,6 @@ class OrchestratorAgent(BaseAgent):
         self.interview_scheduler = InterviewSchedulerAgent()
     
     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Orchestrate the entire recruitment workflow
-        
-        Args:
-            input_data: Dictionary containing 'resumes', 'job_description', and optional config
-            
-        Returns:
-            Dictionary with ranked candidates and processing results
-        """
         self.log_info("Starting orchestration workflow...")
         
         try:
@@ -36,54 +27,72 @@ class OrchestratorAgent(BaseAgent):
             interviewer_email = input_data.get('interviewer_email', '')
             
             if not resumes:
-                self.log_error("No resumes provided")
-                return {
-                    "status": "error",
-                    "message": "No resumes provided",
-                    "ranked_candidates": []
-                }
+                return {"status": "error", "message": "No resumes provided", "ranked_candidates": []}
             
             if not job_description:
-                self.log_error("No job description provided")
-                return {
-                    "status": "error",
-                    "message": "No job description provided",
-                    "ranked_candidates": []
-                }
+                return {"status": "error", "message": "No job description provided", "ranked_candidates": []}
             
-            # Phase 1: Parse all resumes in parallel
-            self.log_info(f"Phase 1: Parsing {len(resumes)} resumes...")
+            # =========================
+            # PHASE 1: PARSE RESUMES
+            # =========================
             parsed_candidates = await self._parse_resumes_parallel(resumes)
-            
-            # Filter out failed parses
-            valid_candidates = [c for c in parsed_candidates if c['status'] == 'success']
-            self.log_info(f"Successfully parsed {len(valid_candidates)} resumes")
-            
-            # Phase 2: Skills matching and cultural fit analysis in parallel
-            self.log_info("Phase 2: Evaluating candidates...")
+
+            # 🔥 FIX: DO NOT DROP FAILED PARSES
+            valid_candidates = []
+
+            for c in parsed_candidates:
+                if c.get('status') == 'success':
+                    valid_candidates.append(c)
+                else:
+                    # fallback candidate creation
+                    idx = c.get("resume_index", 0)
+                    resume_data = resumes[idx]
+
+                    fallback_candidate = {
+                        "status": "success",
+                        "resume_index": idx,
+                        "id": f"fallback_{idx}",
+                        "candidate_data": {
+                            "personal_info": {
+                                "name": resume_data.get("filename", f"Candidate {idx+1}"),
+                                "email": ""
+                            },
+                            "work_experience": [],
+                            "skills": []
+                        }
+                    }
+
+                    self.log_warning(f"Fallback parsing used for resume {idx}")
+                    valid_candidates.append(fallback_candidate)
+
+            self.log_info(f"Candidates ready for evaluation: {len(valid_candidates)}")
+
+            # =========================
+            # PHASE 2: EVALUATION
+            # =========================
             evaluated_candidates = await self._evaluate_candidates_parallel(
                 valid_candidates,
                 job_description,
                 company_culture
             )
-            
-            # Phase 3: Rank candidates
-            self.log_info("Phase 3: Ranking candidates...")
+
+            # =========================
+            # PHASE 3: RANKING
+            # =========================
             ranked_candidates = self._rank_candidates(evaluated_candidates)
-            
-            # Phase 4: Schedule interviews for top candidates
-            self.log_info("Phase 4: Scheduling interviews...")
+
+            # =========================
+            # PHASE 4: FILTER + SCHEDULE
+            # =========================
             qualified_candidates = self._filter_qualified_candidates(ranked_candidates)
-            
+
             scheduling_result = {"scheduled_slots": []}
             if qualified_candidates and interviewer_email:
                 scheduling_result = await self.interview_scheduler.process({
                     "candidates": qualified_candidates,
                     "interviewer_email": interviewer_email
                 })
-            
-            self.log_info("Orchestration workflow completed successfully")
-            
+
             return {
                 "status": "success",
                 "ranked_candidates": ranked_candidates,
@@ -98,26 +107,15 @@ class OrchestratorAgent(BaseAgent):
             
         except Exception as e:
             self.log_error(f"Error in orchestration: {str(e)}")
-            return {
-                "status": "error",
-                "message": str(e),
-                "ranked_candidates": []
-            }
-    
+            return {"status": "error", "message": str(e), "ranked_candidates": []}
+
     async def _parse_resumes_parallel(self, resumes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Parse multiple resumes in parallel"""
-        tasks = []
-        
-        for idx, resume in enumerate(resumes):
-            task = self._parse_single_resume(resume, idx)
-            tasks.append(task)
-        
+        tasks = [self._parse_single_resume(resume, idx) for idx, resume in enumerate(resumes)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         parsed_candidates = []
         for idx, result in enumerate(results):
             if isinstance(result, Exception):
-                self.log_error(f"Resume {idx} parsing failed: {str(result)}")
                 parsed_candidates.append({
                     "status": "error",
                     "resume_index": idx,
@@ -129,62 +127,33 @@ class OrchestratorAgent(BaseAgent):
                     "resume_index": idx,
                     "id": f"candidate_{idx}"
                 })
-        
         return parsed_candidates
-    
+
     async def _parse_single_resume(self, resume: Dict[str, Any], index: int) -> Dict[str, Any]:
-        """Parse a single resume"""
-        self.log_debug(f"Parsing resume {index}...")
         return await self.resume_parser.process(resume)
-    
-    async def _evaluate_candidates_parallel(self,
-                                           candidates: List[Dict[str, Any]],
-                                           job_description: Dict[str, Any],
-                                           company_culture: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Evaluate candidates in parallel (skills + cultural fit)"""
-        tasks = []
-        
-        for candidate in candidates:
-            task = self._evaluate_single_candidate(
-                candidate,
-                job_description,
-                company_culture
-            )
-            tasks.append(task)
-        
+
+    async def _evaluate_candidates_parallel(self, candidates, job_description, company_culture):
+        tasks = [self._evaluate_single_candidate(c, job_description, company_culture) for c in candidates]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        evaluated_candidates = []
-        for idx, result in enumerate(results):
-            if isinstance(result, Exception):
-                self.log_error(f"Candidate {idx} evaluation failed: {str(result)}")
-            else:
-                evaluated_candidates.append(result)
-        
-        return evaluated_candidates
-    
-    async def _evaluate_single_candidate(self,
-                                        candidate: Dict[str, Any],
-                                        job_description: Dict[str, Any],
-                                        company_culture: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate a single candidate (skills and cultural fit in parallel)"""
+
+        return [r for r in results if not isinstance(r, Exception)]
+
+    async def _evaluate_single_candidate(self, candidate, job_description, company_culture):
         candidate_data = candidate.get('candidate_data', {})
-        
-        # Run skills matching and cultural fit analysis in parallel
+
         skills_task = self.skills_matcher.process({
             "candidate_data": candidate_data,
             "job_description": job_description
         })
-        
+
         cultural_task = self.cultural_fit.process({
             "candidate_data": candidate_data,
             "company_culture": company_culture,
             "job_description": job_description
         })
-        
+
         skills_result, cultural_result = await asyncio.gather(skills_task, cultural_task)
-        
-        # Combine results
+
         return {
             "id": candidate.get('id'),
             "resume_index": candidate.get('resume_index'),
@@ -192,94 +161,46 @@ class OrchestratorAgent(BaseAgent):
             "skills_evaluation": skills_result,
             "cultural_evaluation": cultural_result
         }
-    
-    def _rank_candidates(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Rank candidates based on weighted scores"""
+
+    def _rank_candidates(self, candidates):
         ranked = []
-        
+
         for candidate in candidates:
             skills_eval = candidate.get('skills_evaluation', {})
             cultural_eval = candidate.get('cultural_evaluation', {})
             candidate_data = candidate.get('candidate_data', {})
-            
-            # Get scores
+
             skills_score = skills_eval.get('match_score', 0)
             cultural_score = cultural_eval.get('cultural_fit_score', 0)
-            
-            # Calculate years of experience score (normalized)
-            years_exp = self._get_years_of_experience(candidate_data)
-            exp_score = min(years_exp / 10, 1.0)  # Normalize to 0-1
-            
-            # Calculate weighted overall score
+            exp_score = min(len(candidate_data.get('work_experience', [])) * 2 / 10, 1.0)
+
             overall_score = (
                 skills_score * config.SKILLS_WEIGHT +
                 cultural_score * config.CULTURAL_FIT_WEIGHT +
                 exp_score * config.EXPERIENCE_WEIGHT
             )
-            
-            # Determine tier
-            tier = self._determine_tier(overall_score)
-            
+
             ranked.append({
                 "id": candidate.get('id'),
                 "candidate_data": candidate_data,
                 "name": candidate_data.get('personal_info', {}).get('name', 'Unknown'),
                 "email": candidate_data.get('personal_info', {}).get('email', ''),
-                "phone": candidate_data.get('personal_info', {}).get('phone', ''),
                 "overall_score": round(overall_score * 100, 2),
                 "skills_match_score": round(skills_score * 100, 2),
                 "cultural_fit_score": round(cultural_score * 100, 2),
-                "experience_score": round(exp_score * 100, 2),
-                "tier": tier,
-                "matched_skills": skills_eval.get('matched_skills', []),
-                "missing_skills": skills_eval.get('missing_skills', []),
-                "skills_rationale": skills_eval.get('rationale', ''),
-                "cultural_rationale": cultural_eval.get('rationale', ''),
-                "dimensional_scores": cultural_eval.get('dimensional_scores', {}),
-                "recommendation": skills_eval.get('recommendation', 'weak_match')
+                "tier": self._determine_tier(overall_score),
+                "matched_skills": skills_eval.get('matched_skills', [])
             })
-        
-        # Sort by overall score descending
+
         ranked.sort(key=lambda x: x['overall_score'], reverse=True)
-        
         return ranked
-    
-    def _get_years_of_experience(self, candidate_data: Dict[str, Any]) -> float:
-        """Calculate years of experience from work history"""
-        work_experience = candidate_data.get('work_experience', [])
-        # Simple calculation - can be enhanced
-        return len(work_experience) * 2  # Rough estimate
-    
-    def _determine_tier(self, overall_score: float) -> str:
-        """Determine candidate tier based on overall score"""
-        percentage = overall_score * 100
-        
-        if percentage >= 85:
+
+    def _determine_tier(self, score):
+        if score * 100 >= 85:
             return "strong_match"
-        elif percentage >= 70:
+        elif score * 100 >= 70:
             return "moderate_match"
-        else:
-            return "weak_match"
-    
-    def _filter_qualified_candidates(self, ranked_candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter candidates who meet minimum thresholds"""
-        qualified = []
-        
-        for candidate in ranked_candidates:
-            skills_score = candidate.get('skills_match_score', 0)
-            cultural_score = candidate.get('cultural_fit_score', 0)
-            
-            # Check if meets minimum thresholds
-            if (skills_score >= config.SKILLS_MATCH_THRESHOLD and 
-                cultural_score >= config.CULTURAL_FIT_THRESHOLD):
-                qualified.append(candidate)
-        
-        # Return top 20% or candidates with "strong_match" tier
-        strong_matches = [c for c in qualified if c['tier'] == 'strong_match']
-        
-        if strong_matches:
-            return strong_matches
-        
-        # If no strong matches, return top 20% of qualified
-        top_20_percent = max(1, len(qualified) // 5)
-        return qualified[:top_20_percent]
+        return "weak_match"
+
+    def _filter_qualified_candidates(self, candidates):
+        return candidates[:max(1, len(candidates)//5)]
