@@ -1,3 +1,4 @@
+print("CANDIDATES FILE LOADED")
 def render_candidates_page():
     import streamlit as st
 
