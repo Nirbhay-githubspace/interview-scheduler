@@ -39,8 +39,16 @@ class ResumeParserAgent(BaseAgent):
             try:
                 candidate_data = json.loads(response)
 
-                if not candidate_data:
-                    raise ValueError("Empty JSON")
+                # 🔥 FORCE CLEAN NAME FIX
+                raw_name = candidate_data.get("personal_info", {}).get("name", "")
+
+                if not raw_name or "@" in raw_name or "email" in raw_name.lower():
+                    clean_name = self._extract_name(resume_content)
+                    candidate_data.setdefault("personal_info", {})["name"] = clean_name
+
+                # 🔥 ENSURE EMAIL EXISTS
+                if not candidate_data.get("personal_info", {}).get("email"):
+                    candidate_data["personal_info"]["email"] = self._extract_email(resume_content)
 
                 return {
                     "status": "success",
@@ -61,8 +69,6 @@ class ResumeParserAgent(BaseAgent):
     # =========================
 
     def _fallback_from_text(self, text: str) -> Dict[str, Any]:
-        """Extract basic info without AI"""
-
         name = self._extract_name(text)
         email = self._extract_email(text)
 
@@ -103,7 +109,7 @@ class ResumeParserAgent(BaseAgent):
         }
 
     # =========================
-    # 🔥 IMPROVED EXTRACTION
+    # 🔥 EXTRACTION HELPERS
     # =========================
 
     def _extract_email(self, text: str) -> str:
@@ -116,13 +122,12 @@ class ResumeParserAgent(BaseAgent):
         for line in lines[:10]:
             clean = line.strip()
 
-            # skip emails / links / labels
+            # skip emails / labels
             if "@" in clean or "email" in clean.lower():
                 continue
 
             words = clean.split()
 
-            # likely name: 2–3 words, alphabetic only
             if 1 < len(words) <= 3 and all(w.isalpha() for w in words):
                 return clean
 
