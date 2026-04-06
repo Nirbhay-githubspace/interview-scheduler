@@ -1,88 +1,197 @@
-import streamlit as st
-from pathlib import Path
-import json
+"""
+Jobs page for managing job descriptions
+"""
 
-JOBS_FILE = Path("data/jobs/jobs_list.json")
+import streamlit as st
+import json
+from pathlib import Path
+from datetime import datetime
+
 
 def render_jobs_page():
-    st.title("📋 Jobs")
+    """Render jobs management page"""
+    
+    st.title("📋 Job Descriptions")
+    
+    tabs = st.tabs(["Active Jobs", "Create New Job", "View Job Details"])
+    
+    with tabs[0]:
+        render_active_jobs()
+    
+    with tabs[1]:
+        render_create_job()
+    
+    with tabs[2]:
+        render_job_details()
 
-    tab1, tab2 = st.tabs(["➕ Create Job", "📄 View Jobs"])
 
-    # =========================
-    # CREATE JOB
-    # =========================
-    with tab1:
-        st.subheader("Create New Job")
-
-        job_id = st.text_input("Job ID")
-        title = st.text_input("Job Title")
-        required_skills = st.text_input("Required Skills (comma separated)")
-        description = st.text_area("Job Description")
-
-        if st.button("Create Job"):
-            job = {
+# =========================
+# CREATE JOB (UNCHANGED)
+# =========================
+def render_create_job():
+    st.subheader("Create New Job Description")
+    
+    with st.form("create_job_form"):
+        st.markdown("### 📝 Basic Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            job_id = st.text_input("Job ID*")
+            title = st.text_input("Job Title*")
+            department = st.text_input("Department")
+        
+        with col2:
+            location = st.text_input("Location*")
+            work_location_type = st.selectbox("Work Location Type", ["Hybrid", "Remote", "On-site"])
+            experience_level = st.selectbox("Experience Level*", ["Entry", "Junior", "Mid", "Senior", "Lead", "Principal"])
+        
+        st.markdown("### 📄 Description")
+        description = st.text_area("Job Description*", height=150)
+        
+        st.markdown("### 🎯 Required Skills")
+        required_skills_text = st.text_area("Required Skills*", height=100)
+        
+        submitted = st.form_submit_button("💾 Save Job Description", use_container_width=True)
+        
+        if submitted:
+            if not job_id or not title or not location or not description:
+                st.error("Fill all required fields")
+                return
+            
+            job_data = {
                 "id": job_id,
                 "title": title,
+                "department": department,
+                "location": location,
+                "work_location_type": work_location_type,
+                "experience_level": experience_level,
+                "description": description,
                 "requirements": {
-                    "required_skills": [s.strip() for s in required_skills.split(",")]
+                    "required_skills": [s.strip() for s in required_skills_text.split("\n") if s.strip()]
                 },
-                "description": description
+                "created_at": datetime.now().isoformat()
             }
+            
+            save_job_description(job_data)
+            st.success("✅ Job created!")
 
-            jobs = []
 
-            if JOBS_FILE.exists():
-                with open(JOBS_FILE, "r") as f:
-                    jobs = json.load(f)
-
-            jobs.append(job)
-
-            JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(JOBS_FILE, "w") as f:
-                json.dump(jobs, f, indent=2)
-
-            st.success("✅ Job created successfully!")
-
-    # =========================
-    # VIEW + DELETE JOBS
-    # =========================
-    with tab2:
-        st.subheader("All Jobs")
-
-        if not JOBS_FILE.exists():
-            st.info("No jobs available.")
-            return
-
-        with open(JOBS_FILE, "r") as f:
+# =========================
+# SAVE JOB
+# =========================
+def save_job_description(job_data):
+    jobs_dir = Path("data/jobs")
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    
+    job_file = jobs_dir / f"{job_data['id']}.json"
+    with open(job_file, "w") as f:
+        json.dump(job_data, f, indent=2)
+    
+    jobs_list_file = jobs_dir / "jobs_list.json"
+    
+    if jobs_list_file.exists():
+        with open(jobs_list_file) as f:
             jobs = json.load(f)
+    else:
+        jobs = []
+    
+    jobs.append(job_data)
+    
+    with open(jobs_list_file, "w") as f:
+        json.dump(jobs, f, indent=2)
 
-        if not jobs:
-            st.info("No jobs found.")
-            return
 
-        for i, job in enumerate(jobs):
-            with st.container():
-                st.markdown("---")
-
+# =========================
+# 🔥 ACTIVE JOBS (UPDATED WITH DELETE)
+# =========================
+def render_active_jobs():
+    
+    st.subheader("Active Job Descriptions")
+    
+    jobs_list_file = Path("data/jobs/jobs_list.json")
+    
+    if not jobs_list_file.exists():
+        st.info("No jobs yet")
+        return
+    
+    with open(jobs_list_file) as f:
+        jobs = json.load(f)
+    
+    if not jobs:
+        st.info("No jobs found")
+        return
+    
+    for i, job in enumerate(jobs):
+        with st.container():
+            col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
+            
+            with col1:
                 st.markdown(f"### {job['title']}")
-                st.write(f"🆔 ID: {job['id']}")
+                st.caption(f"📍 {job['location']}")
+            
+            with col2:
+                st.metric("Skills", len(job["requirements"]["required_skills"]))
+            
+            with col3:
+                if st.button("View", key=f"view_{job['id']}"):
+                    st.session_state["selected_job"] = job["id"]
+            
+            with col4:
+                # 🔥 DELETE BUTTON
+                if st.button("❌ Delete", key=f"delete_{job['id']}"):
+                    
+                    # Remove from list
+                    jobs.pop(i)
+                    
+                    # Save updated list
+                    with open(jobs_list_file, "w") as f:
+                        json.dump(jobs, f, indent=2)
+                    
+                    # Delete individual file
+                    job_file = Path(f"data/jobs/{job['id']}.json")
+                    if job_file.exists():
+                        job_file.unlink()
+                    
+                    st.success(f"🗑️ Deleted {job['title']}")
+                    st.rerun()
+            
+            st.divider()
 
-                skills = job.get("requirements", {}).get("required_skills", [])
-                st.write(f"🧠 Skills: {', '.join(skills)}")
 
-                st.write(f"📄 {job.get('description', '')}")
-
-                col1, col2 = st.columns([4, 1])
-
-                with col2:
-                    # 🔥 DELETE BUTTON
-                    if st.button("❌ Delete", key=f"delete_{job['id']}"):
-                        jobs.pop(i)
-
-                        with open(JOBS_FILE, "w") as f:
-                            json.dump(jobs, f, indent=2)
-
-                        st.success("🗑️ Job deleted!")
-                        st.rerun()
+# =========================
+# VIEW JOB DETAILS (UNCHANGED)
+# =========================
+def render_job_details():
+    
+    st.subheader("Job Details")
+    
+    jobs_list_file = Path("data/jobs/jobs_list.json")
+    
+    if not jobs_list_file.exists():
+        st.info("No jobs available")
+        return
+    
+    with open(jobs_list_file) as f:
+        jobs = json.load(f)
+    
+    if not jobs:
+        st.info("No jobs found")
+        return
+    
+    job_titles = {j["id"]: j["title"] for j in jobs}
+    
+    selected = st.selectbox(
+        "Select Job",
+        options=list(job_titles.keys()),
+        format_func=lambda x: job_titles[x]
+    )
+    
+    job = next(j for j in jobs if j["id"] == selected)
+    
+    st.markdown(f"## {job['title']}")
+    st.write(job["description"])
+    
+    st.markdown("### Skills")
+    for s in job["requirements"]["required_skills"]:
+        st.write(f"- {s}")
