@@ -3,13 +3,12 @@ import streamlit as st
 def render_candidates_page():
     st.title("👥 Candidates")
 
-    # 🔥 FORCE EXECUTION CONFIRMATION
     st.write("✅ Candidates page loaded successfully")
 
     tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
 
     # =========================
-    # TAB 1
+    # TAB 1: SHOW CANDIDATES
     # =========================
     with tab1:
         st.subheader("Candidate Rankings")
@@ -25,16 +24,30 @@ def render_candidates_page():
                 reverse=True
             )
 
-            st.success(f"🏆 Top Candidate: {candidates[0]['name']}")
+            st.success(f"🏆 Top Candidate: {candidates[0].get('name', 'Unknown')}")
 
             for c in candidates:
-                st.markdown(f"### {c.get('name')}")
-                st.write(f"Score: {c.get('overall_score')}%")
-                st.progress(c.get("overall_score", 0) / 100)
-                st.divider()
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+
+                    with col1:
+                        st.subheader(c.get("name", "Unknown"))
+                        st.write(f"📧 {c.get('email', 'N/A')}")
+
+                        skills = c.get("matched_skills", [])
+                        if skills:
+                            st.write("**Skills:** " + ", ".join(skills[:5]))
+                        else:
+                            st.write("**Skills:** None")
+
+                    with col2:
+                        st.metric("Overall", f"{c.get('overall_score', 0)}%")
+
+                    st.progress(c.get("overall_score", 0) / 100)
+                    st.divider()
 
     # =========================
-    # TAB 2
+    # TAB 2: UPLOAD + PROCESS
     # =========================
     with tab2:
         st.subheader("Upload Resumes")
@@ -48,15 +61,75 @@ def render_candidates_page():
         if uploaded_files:
             st.success(f"{len(uploaded_files)} file(s) selected")
 
-            if st.button("Process"):
-                st.info("Processing...")
+            if st.button("🚀 Process Resumes"):
 
-                # FAKE DATA (TEMP TEST)
-                st.session_state["candidates"] = [
-                    {
-                        "name": "Test Candidate",
-                        "overall_score": 85
-                    }
-                ]
+                st.write("🚀 Processing started...")
+                progress = st.progress(0)
 
-                st.rerun()
+                try:
+                    from tools.pdf_parser import extract_text_from_pdf
+                    from tools.docx_parser import extract_text_from_docx
+                    from agents.orchestrator_agent import OrchestratorAgent
+                    import asyncio
+
+                    resumes = []
+
+                    # STEP 1: Extract text
+                    for i, file in enumerate(uploaded_files):
+                        st.write(f"📄 Processing: {file.name}")
+
+                        path = file.name
+
+                        with open(path, "wb") as f:
+                            f.write(file.getbuffer())
+
+                        if file.name.endswith(".pdf"):
+                            text = extract_text_from_pdf(path)
+                        else:
+                            text = extract_text_from_docx(path)
+
+                        resumes.append({
+                            "filename": file.name,
+                            "resume_content": text
+                        })
+
+                        progress.progress((i + 1) / len(uploaded_files) * 0.4)
+
+                    st.write("✅ Resume parsing complete")
+
+                    # STEP 2: Run AI
+                    orchestrator = OrchestratorAgent()
+
+                    async def run():
+                        return await orchestrator.process({
+                            "resumes": resumes,
+                            "job_description": {
+                                "title": "Software Engineer",
+                                "required_skills": ["Python", "Machine Learning"],
+                                "preferred_skills": ["Docker"]
+                            },
+                            "company_culture": {}
+                        })
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                    result = loop.run_until_complete(run())
+
+                    progress.progress(1.0)
+
+                    # STEP 3: Show results
+                    if result.get("status") == "success":
+                        st.success("✅ Processing completed!")
+
+                        st.session_state["candidates"] = result.get("ranked_candidates", [])
+
+                        st.rerun()
+
+                    else:
+                        st.error("❌ Processing failed")
+                        st.write(result)
+
+                except Exception as e:
+                    st.error("❌ ERROR DURING PROCESSING")
+                    st.write(str(e))
