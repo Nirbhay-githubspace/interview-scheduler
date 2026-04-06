@@ -81,8 +81,8 @@ class ResumeParserAgent(BaseAgent):
             "status": "success",
             "candidate_data": candidate_data,
             "confidence_scores": {
-                "personal_info": 0.6,
-                "skills": 0.5
+                "personal_info": 0.7,
+                "skills": 0.6
             }
         }
 
@@ -102,19 +102,38 @@ class ResumeParserAgent(BaseAgent):
             "confidence_scores": {}
         }
 
+    # =========================
+    # 🔥 IMPROVED EXTRACTION
+    # =========================
+
     def _extract_email(self, text: str) -> str:
         match = re.search(r'[\w\.-]+@[\w\.-]+', text)
         return match.group(0) if match else ""
 
     def _extract_name(self, text: str) -> str:
         lines = text.split("\n")
-        for line in lines[:5]:
-            if len(line.strip()) > 3 and len(line.strip().split()) <= 4:
-                return line.strip()
+
+        for line in lines[:10]:
+            clean = line.strip()
+
+            # skip emails / links / labels
+            if "@" in clean or "email" in clean.lower():
+                continue
+
+            words = clean.split()
+
+            # likely name: 2–3 words, alphabetic only
+            if 1 < len(words) <= 3 and all(w.isalpha() for w in words):
+                return clean
+
         return "Candidate"
 
     def _extract_skills(self, text: str) -> list:
-        common_skills = ["python", "java", "aws", "docker", "ml", "ai"]
+        common_skills = [
+            "python", "java", "aws", "docker", "ml", "ai",
+            "react", "sql", "tensorflow", "pandas", "javascript"
+        ]
+
         found = []
         text_lower = text.lower()
 
