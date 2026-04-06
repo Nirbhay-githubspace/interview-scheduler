@@ -11,7 +11,7 @@ class InterviewSchedulerAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("InterviewSchedulerAgent")
-        self.calendar_service = CalendarService()
+        self.calendar_service = None
         self.email_service = EmailService(
             smtp_host=config.SMTP_HOST,
             smtp_port=config.SMTP_PORT,
