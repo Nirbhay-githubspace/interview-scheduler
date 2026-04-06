@@ -1,4 +1,5 @@
 import streamlit as st
+st.write("Candidates page loaded")
 
 def render_candidates_page():
     st.title("👥 Candidates")
