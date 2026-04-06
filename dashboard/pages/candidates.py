@@ -6,9 +6,6 @@ def render_candidates_page():
 
     st.title("👥 Candidates")
 
-    # =========================
-    # TABS
-    # =========================
     tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
 
     # =========================
@@ -22,18 +19,16 @@ def render_candidates_page():
         if not candidates:
             st.info("No candidates yet. Upload resumes to see results.")
         else:
-            # Sort candidates by score
+            # Sort candidates
             candidates = sorted(
                 candidates,
                 key=lambda x: x.get("overall_score", 0),
                 reverse=True
             )
 
-            # Highlight top candidate
             top = candidates[0]
             st.success(f"🏆 Top Candidate: {top.get('name')} ({top.get('overall_score')}%)")
 
-            # Display candidates
             for c in candidates:
                 with st.container():
                     col1, col2 = st.columns([3, 1])
@@ -42,26 +37,18 @@ def render_candidates_page():
                         st.subheader(c.get("name", "Unknown"))
                         st.write(f"📧 {c.get('email', 'N/A')}")
 
-                        st.write("**Matched Skills:**")
                         skills = c.get("matched_skills", [])
-
                         if skills:
-                            st.write(", ".join(skills[:5]))
+                            st.write("**Skills:** " + ", ".join(skills[:5]))
                         else:
-                            st.write("No matched skills")
-
-                        # Tier badge
-                        tier = c.get("tier", "unknown").replace("_", " ").title()
-                        st.write(f"🎯 Tier: {tier}")
+                            st.write("**Skills:** None")
 
                     with col2:
                         st.metric("Overall", f"{c.get('overall_score', 0)}%")
                         st.metric("Skills", f"{c.get('skills_match_score', 0)}%")
                         st.metric("Fit", f"{c.get('cultural_fit_score', 0)}%")
 
-                    # Progress bar
                     st.progress(c.get("overall_score", 0) / 100)
-
                     st.divider()
 
     # =========================
@@ -73,7 +60,7 @@ def render_candidates_page():
         jobs_file = Path("data/jobs/jobs_list.json")
 
         if not jobs_file.exists():
-            st.warning("⚠️ Create a job first in Jobs page")
+            st.warning("⚠️ Create a job first")
             return
 
         with open(jobs_file) as f:
@@ -101,7 +88,7 @@ def render_candidates_page():
             st.success(f"{len(uploaded_files)} file(s) selected")
 
             if st.button("🚀 Process Resumes"):
-                st.success("Processing started... ⏳")
+                st.info("Processing... wait 30–60 seconds")
 
                 from tools.pdf_parser import extract_text_from_pdf
                 from tools.docx_parser import extract_text_from_docx
@@ -147,11 +134,10 @@ def render_candidates_page():
                 result = asyncio.run(run())
 
                 if result.get("status") == "success":
-                    st.success("✅ Processing complete!")
+                    st.success("✅ Done!")
 
                     st.session_state["candidates"] = result.get("ranked_candidates", [])
 
-                    # 🔥 refresh UI instantly
                     st.rerun()
                 else:
                     st.error("Processing failed")
