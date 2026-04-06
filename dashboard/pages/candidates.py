@@ -1,6 +1,5 @@
 import streamlit as st
 
-
 def render_candidates_page():
     st.title("👥 Candidates")
 
@@ -13,13 +12,9 @@ def render_candidates_page():
         render_upload_interface()
 
 
-# =========================
-# ✅ FIXED LIST VIEW
-# =========================
 def render_candidates_list():
     st.markdown("### Candidate Rankings")
 
-    # 🔥 NO DATABASE (fix blank screen)
     candidates = st.session_state.get("candidates", [])
 
     if not candidates:
@@ -27,16 +22,13 @@ def render_candidates_list():
         return
 
     for c in candidates:
-        st.markdown(f"### {c['name']}")
-        st.write(f"Score: {c['overall_score']}%")
-        st.write(f"Skills: {c['skills_match_score']}%")
-        st.write(f"Cultural Fit: {c['cultural_fit_score']}%")
+        st.markdown(f"### {c.get('name', 'Unknown')}")
+        st.write(f"Score: {c.get('overall_score', 0)}%")
+        st.write(f"Skills: {c.get('skills_match_score', 0)}%")
+        st.write(f"Cultural Fit: {c.get('cultural_fit_score', 0)}%")
         st.write("---")
 
 
-# =========================
-# ✅ UPLOAD UI
-# =========================
 def render_upload_interface():
     st.markdown("### Upload Candidate Resumes")
 
@@ -46,11 +38,15 @@ def render_upload_interface():
     jobs_file = Path("data/jobs/jobs_list.json")
 
     if not jobs_file.exists():
-        st.warning("Create a job first in Jobs page")
+        st.warning("⚠️ Create a job first in Jobs page")
         return
 
     with open(jobs_file) as f:
         jobs = json.load(f)
+
+    if not jobs:
+        st.warning("⚠️ No jobs found")
+        return
 
     job_options = {job["id"]: job["title"] for job in jobs}
 
@@ -69,37 +65,16 @@ def render_upload_interface():
     if uploaded_files:
         st.success(f"{len(uploaded_files)} file(s) selected")
 
-        for f in uploaded_files:
-            st.write(f"📄 {f.name}")
-
         if st.button("🚀 Process Resumes"):
+            st.write("Processing... please wait")
 
-            st.success("Processing started... please wait ⏳")
+            results = process_uploaded_resumes(uploaded_files, job_id)
 
-            progress = st.progress(0)
-            status = st.empty()
+            st.session_state["candidates"] = results
 
-            try:
-                status.text("Saving files...")
-                progress.progress(30)
-
-                results = process_uploaded_resumes(uploaded_files, job_id)
-
-                progress.progress(100)
-                status.text("✅ Done!")
-
-                # 🔥 Store in session (fix blank page)
-                st.session_state["candidates"] = results
-
-                st.success("Candidates processed successfully!")
-
-            except Exception as e:
-                st.error(str(e))
+            st.success("Done!")
 
 
-# =========================
-# 🔥 PROCESS FUNCTION
-# =========================
 def process_uploaded_resumes(files, job_id):
     import asyncio
     from pathlib import Path
@@ -109,9 +84,6 @@ def process_uploaded_resumes(files, job_id):
     from tools.docx_parser import extract_text_from_docx
     from agents.orchestrator_agent import OrchestratorAgent
 
-    st.write("⚙️ Starting processing...")
-
-    # Load job
     jobs_file = Path("data/jobs/jobs_list.json")
     with open(jobs_file) as f:
         jobs = json.load(f)
@@ -129,8 +101,6 @@ def process_uploaded_resumes(files, job_id):
     resumes = []
 
     for file in files:
-        st.write(f"Processing {file.name}")
-
         path = Path("temp_" + file.name)
 
         with open(path, "wb") as f:
@@ -158,10 +128,7 @@ def process_uploaded_resumes(files, job_id):
     result = asyncio.run(run())
 
     if result["status"] == "success":
-        st.success("✅ Processing complete!")
-
-        return result["ranked_candidates"]
-
+        return result.get("ranked_candidates", [])
     else:
         st.error("Processing failed")
         return []
