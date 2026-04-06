@@ -24,7 +24,8 @@ def render_candidates_page():
                 reverse=True
             )
 
-            st.success(f"🏆 Top Candidate: {candidates[0].get('name', 'Unknown')}")
+            top = candidates[0]
+            st.success(f"🏆 Top Candidate: {top.get('name', 'Unknown')} ({top.get('overall_score', 0)}%)")
 
             for c in candidates:
                 with st.container():
@@ -97,7 +98,7 @@ def render_candidates_page():
 
                     st.write("✅ Resume parsing complete")
 
-                    # STEP 2: Run AI
+                    # STEP 2: AI Processing
                     orchestrator = OrchestratorAgent()
 
                     async def run():
@@ -118,13 +119,12 @@ def render_candidates_page():
 
                     progress.progress(1.0)
 
-                    # STEP 3: Show results
+                    # STEP 3: Store + Show results
                     if result.get("status") == "success":
-                        st.success("✅ Processing completed!")
 
                         st.session_state["candidates"] = result.get("ranked_candidates", [])
 
-                        st.rerun()
+                        st.success("✅ Processing completed! Go to 'All Candidates' tab to view results.")
 
                     else:
                         st.error("❌ Processing failed")
