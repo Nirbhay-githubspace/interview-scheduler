@@ -195,3 +195,4 @@ def process_uploaded_resumes(files, job_id):
     else:
         st.error("Processing failed")
         return []
+    render_candidates_page()
