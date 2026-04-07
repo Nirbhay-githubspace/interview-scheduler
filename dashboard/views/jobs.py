@@ -1,6 +1,8 @@
 """
 Jobs page for managing job descriptions
 """
+from storage.jobs_db import init_db, save_job, get_jobs, delete_job
+init_db()
 
 import streamlit as st
 import json
