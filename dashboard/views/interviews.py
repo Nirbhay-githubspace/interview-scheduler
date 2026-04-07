@@ -1,11 +1,22 @@
+
+
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 from typing import Dict, Any
 
 def render_interviews_page():
-    """Render interviews page with calendar and management features"""
-    
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+         st.session_state["page"] = "Home"
+        st.rerun()
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+            st.session_state["page"] = "Home"
+            st.rerun()
+
     st.title("📅 Interviews")
     
     # Tabs

@@ -1,3 +1,5 @@
+
+
 """
 Jobs page for managing job descriptions (SQLite version)
 """
@@ -16,6 +18,18 @@ init_db()
 # MAIN PAGE
 # =========================
 def render_jobs_page():
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+            st.session_state["page"] = "Home"
+        st.rerun()
+
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+            st.session_state["page"] = "Home"
+            st.rerun()
+
     st.title("📋 Job Descriptions")
 
     tab1, tab2 = st.tabs(["Active Jobs", "Create / Edit Job"])

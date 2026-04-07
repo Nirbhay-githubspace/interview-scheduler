@@ -33,7 +33,7 @@ st.set_page_config(
 )
 
 # =========================
-# SESSION STATE (CLEAN INIT)
+# SESSION STATE
 # =========================
 if "user" not in st.session_state:
     st.session_state.user = {
@@ -42,19 +42,17 @@ if "user" not in st.session_state:
         "role": "Recruiter"
     }
 
-# 🔥 IMPORTANT: CLEAN DEFAULT STATE
 if "candidates" not in st.session_state:
     st.session_state["candidates"] = []
 
 if "selected_job" not in st.session_state:
     st.session_state["selected_job"] = None
 
-# 🔥 NAVIGATION STATE (FIX BUTTON NAVIGATION)
 if "page" not in st.session_state:
     st.session_state["page"] = "Home"
 
 # =========================
-# SIDEBAR
+# SIDEBAR (SYNCED)
 # =========================
 with st.sidebar:
 
@@ -63,15 +61,18 @@ with st.sidebar:
 
     st.divider()
 
-    # 🔥 RADIO SYNCED WITH SESSION STATE
-    page = st.radio(
+    pages = ["Home", "Jobs", "Candidates", "Interviews"]
+
+    selected_page = st.radio(
         "Navigation",
-        ["Home", "Jobs", "Candidates", "Interviews"],
-        index=["Home", "Jobs", "Candidates", "Interviews"].index(st.session_state["page"])
+        pages,
+        index=pages.index(st.session_state["page"]),
+        key="sidebar_nav"
     )
 
-    # 🔥 KEEP PAGE STATE IN SYNC
-    st.session_state["page"] = page
+    if selected_page != st.session_state["page"]:
+        st.session_state["page"] = selected_page
+        st.rerun()
 
     st.divider()
 
@@ -79,7 +80,7 @@ with st.sidebar:
     st.caption(st.session_state.user['email'])
 
 # =========================
-# ROUTING (STABLE)
+# ROUTING
 # =========================
 page = st.session_state["page"]
 

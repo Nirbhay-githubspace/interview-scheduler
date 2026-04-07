@@ -1,6 +1,20 @@
+
 import streamlit as st
 
 def render_candidates_page():
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+            st.session_state["page"] = "Home"
+        st.rerun()
+
+
+    col1, col2 = st.columns([8, 1])
+    with col2:
+        if st.button("🏠 Home"):
+            st.session_state["page"] = "Home"
+            st.rerun()
+
     st.title("👥 Candidates")
 
     tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
