@@ -4,30 +4,54 @@ from typing import Dict, Any
 class SkillsMatcherAgent(BaseAgent):
     def __init__(self):
         super().__init__("SkillsMatcherAgent")
-    
-    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        candidate_data = input_data.get('candidate_data', {})
-        job_description = input_data.get('job_description', {})
 
-        candidate_skills = [s.lower() for s in candidate_data.get('skills', [])]
-        required_skills = [s.lower() for s in job_description.get('required_skills', [])]
+    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        candidate_data = input_data.get("candidate_data", {})
+        job_description = input_data.get("job_description", {})
+
+        candidate_skills = [s.lower() for s in candidate_data.get("skills", [])]
+        required_skills = [s.lower() for s in job_description.get("required_skills", [])]
+
+        # 🔥 SKILL SYNONYMS
+        synonyms = {
+            "ai": ["machine learning", "ml", "deep learning"],
+            "ml": ["machine learning", "ai"],
+            "python": ["python3", "py"],
+            "aws": ["amazon web services", "ec2", "s3"],
+            "docker": ["containers"],
+            "sql": ["mysql", "postgresql"]
+        }
 
         matched = []
         missing = []
 
-        for skill in required_skills:
-            if any(skill in c or c in skill for c in candidate_skills):
-                matched.append(skill)
-            else:
-                missing.append(skill)
+        for req in required_skills:
+            matched_flag = False
 
-        # 🔥 FIX: ensure non-zero score
+            for cand in candidate_skills:
+                # direct match
+                if req in cand or cand in req:
+                    matched_flag = True
+
+                # synonym match
+                elif req in synonyms and cand in synonyms[req]:
+                    matched_flag = True
+
+                elif cand in synonyms and req in synonyms[cand]:
+                    matched_flag = True
+
+            if matched_flag:
+                matched.append(req)
+            else:
+                missing.append(req)
+
+        # 🔥 SCORE CALCULATION
         if required_skills:
             score = len(matched) / len(required_skills)
         else:
             score = 0.5
 
-        # 🔥 BOOST score if any skill detected
+        # 🔥 BOOST if any skills present
         if candidate_skills and score == 0:
             score = 0.3
 
@@ -37,15 +61,15 @@ class SkillsMatcherAgent(BaseAgent):
             "matched_skills": matched,
             "missing_skills": missing,
             "transferable_skills": candidate_skills,
-            "rationale": "Rule-based skill matching applied",
+            "rationale": "Enhanced skill + synonym matching",
             "recommendation": self._determine_recommendation(score * 100),
             "detailed_breakdown": {}
         }
 
     def _determine_recommendation(self, match_percentage: float) -> str:
-        if match_percentage >= 85:
+        if match_percentage >= 80:
             return "strong_match"
-        elif match_percentage >= 60:
+        elif match_percentage >= 50:
             return "moderate_match"
         else:
             return "weak_match"
