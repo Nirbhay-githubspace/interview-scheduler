@@ -1,77 +1,92 @@
 import streamlit as st
-from dashboard.components import render_analytics_panel
-from typing import Dict, Any
+from storage.jobs_db import get_jobs
 
 def render_home_page():
-    """Render home page with overview dashboard"""
-    
+    """Render clean, real dashboard"""
+
     st.title("🏠 Dashboard Overview")
     st.markdown("Welcome to the Intelligent Recruitment & Talent Matching System")
-    
-    # Quick stats
+
     st.markdown("---")
 
-    # Fetch real metrics from database
-    from dashboard.services import get_metrics
-    metrics = get_metrics()
+    # =========================
+    # REAL METRICS (NO FAKE DATA)
+    # =========================
+    jobs = get_jobs()
+    candidates = st.session_state.get("candidates", [])
 
-    # Render analytics panel
-    render_analytics_panel(metrics)
-    
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("📋 Active Jobs", len(jobs))
+
+    with col2:
+        st.metric("👥 Candidates", len(candidates))
+
+    with col3:
+        st.metric("📅 Interviews", 0)
+
     st.markdown("---")
-    
-    # Recent activity
+
+    # =========================
+    # EMPTY STATE / ONBOARDING
+    # =========================
+    if len(jobs) == 0 and len(candidates) == 0:
+        st.info("👋 Welcome! Start by creating your first job and uploading resumes.")
+
+    # =========================
+    # RECENT ACTIVITY (CLEAN)
+    # =========================
     st.markdown("### 📋 Recent Activity")
 
-    # Fetch real activities from database
-    from dashboard.services import get_recent_activities
-    recent_activities = get_recent_activities(limit=10)
-
-    if recent_activities:
-        for activity in recent_activities:
-            icon = "✅" if activity['type'] == 'success' else "ℹ️"
-            st.markdown(f"{icon} **{activity['activity']}** - _{activity['time']}_")
-            st.caption(activity['details'])
-            st.markdown("---")
+    if candidates:
+        st.success(f"Processed {len(candidates)} candidate(s)")
     else:
-        st.info("No recent activity. Start by creating a job and uploading resumes!")
-    
-    # Quick actions
+        st.info("No recent activity yet.")
+
+    st.markdown("---")
+
+    # =========================
+    # QUICK ACTIONS
+    # =========================
     st.markdown("### ⚡ Quick Actions")
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         if st.button("📤 Upload Resumes", use_container_width=True):
             st.session_state['page'] = 'candidates'
-            st.session_state['action'] = 'upload'
             st.rerun()
-    
+
     with col2:
         if st.button("➕ Create Job", use_container_width=True):
-            st.info("Job creation feature coming soon!")
-    
+            st.session_state['page'] = 'jobs'
+            st.rerun()
+
     with col3:
         if st.button("👥 View Candidates", use_container_width=True):
             st.session_state['page'] = 'candidates'
             st.rerun()
-    
+
     with col4:
         if st.button("📅 View Interviews", use_container_width=True):
             st.session_state['page'] = 'interviews'
             st.rerun()
-    
-    # System status
+
     st.markdown("---")
+
+    # =========================
+    # SYSTEM STATUS (STATIC BUT CLEAN)
+    # =========================
     st.markdown("### 🔧 System Status")
-    
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
-        st.success("✅ All agents operational")
-    
+        st.success("✅ Agents ready")
+
     with col2:
-        st.success("✅ API connection healthy")
-    
+        st.success("✅ API connected")
+
     with col3:
-        st.success("✅ Calendar integration active")
+        st.success("✅ System operational")

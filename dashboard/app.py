@@ -6,15 +6,25 @@ import streamlit as st
 import sys
 from pathlib import Path
 
-# Add project root to path
+# =========================
+# PATH SETUP
+# =========================
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import pages
-from dashboard.views import render_home_page, render_candidates_page, render_interviews_page
+# =========================
+# IMPORT PAGES
+# =========================
+from dashboard.views import (
+    render_home_page,
+    render_candidates_page,
+    render_interviews_page
+)
 from dashboard.views.jobs import render_jobs_page
 
-# Page config
+# =========================
+# PAGE CONFIG
+# =========================
 st.set_page_config(
     page_title="Intelligent Recruitment System",
     page_icon="🤖",
@@ -23,14 +33,25 @@ st.set_page_config(
 )
 
 # =========================
-# SESSION STATE
+# SESSION STATE (CLEAN INIT)
 # =========================
-if 'user' not in st.session_state:
+if "user" not in st.session_state:
     st.session_state.user = {
-        'name': 'Admin User',
-        'email': 'admin@recruitment.ai',
-        'role': 'Recruiter'
+        "name": "Admin User",
+        "email": "admin@recruitment.ai",
+        "role": "Recruiter"
     }
+
+# 🔥 IMPORTANT: CLEAN DEFAULT STATE
+if "candidates" not in st.session_state:
+    st.session_state["candidates"] = []
+
+if "selected_job" not in st.session_state:
+    st.session_state["selected_job"] = None
+
+# 🔥 NAVIGATION STATE (FIX BUTTON NAVIGATION)
+if "page" not in st.session_state:
+    st.session_state["page"] = "Home"
 
 # =========================
 # SIDEBAR
@@ -42,11 +63,15 @@ with st.sidebar:
 
     st.divider()
 
-    # 🔥 CLEAN NAVIGATION (NO EMOJIS = NO BUGS)
+    # 🔥 RADIO SYNCED WITH SESSION STATE
     page = st.radio(
         "Navigation",
-        ["Home", "Jobs", "Candidates", "Interviews"]
+        ["Home", "Jobs", "Candidates", "Interviews"],
+        index=["Home", "Jobs", "Candidates", "Interviews"].index(st.session_state["page"])
     )
+
+    # 🔥 KEEP PAGE STATE IN SYNC
+    st.session_state["page"] = page
 
     st.divider()
 
@@ -54,8 +79,9 @@ with st.sidebar:
     st.caption(st.session_state.user['email'])
 
 # =========================
-# ROUTING (FIXED)
+# ROUTING (STABLE)
 # =========================
+page = st.session_state["page"]
 
 if page == "Home":
     render_home_page()
