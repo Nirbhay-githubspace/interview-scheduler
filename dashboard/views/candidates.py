@@ -1,20 +1,19 @@
-
 import streamlit as st
 
 def render_candidates_page():
-    col1, col2 = st.columns([8, 1])
-    with col2:
-        if st.button("🏠 Home"):
-            st.session_state["page"] = "Home"
-        st.rerun()
 
-
+    # =========================
+    # GLOBAL HOME BUTTON (FIXED)
+    # =========================
     col1, col2 = st.columns([8, 1])
     with col2:
         if st.button("🏠 Home"):
             st.session_state["page"] = "Home"
             st.rerun()
 
+    # =========================
+    # MAIN UI
+    # =========================
     st.title("👥 Candidates")
 
     tab1, tab2 = st.tabs(["📋 All Candidates", "📤 Upload Resumes"])
@@ -30,7 +29,6 @@ def render_candidates_page():
         if not all_candidates:
             st.info("No candidates yet. Upload resumes to see results.")
         else:
-            # 🔥 FILTER BY JOB
             job_ids = list(set(c.get("job_id", "Unknown") for c in all_candidates))
 
             selected_job_filter = st.selectbox(
@@ -46,7 +44,6 @@ def render_candidates_page():
                     if c.get("job_id") == selected_job_filter
                 ]
 
-            # sort by score
             candidates = sorted(
                 candidates,
                 key=lambda x: x.get("overall_score", 0),
@@ -80,7 +77,6 @@ def render_candidates_page():
     with tab2:
         st.subheader("Upload Resumes")
 
-        # 🔥 LOAD JOBS FROM DATABASE
         from storage.jobs_db import get_jobs
 
         jobs = get_jobs()
@@ -132,7 +128,6 @@ def render_candidates_page():
                         "resume_content": text
                     })
 
-                # 🔥 USE REAL JOB DATA
                 job_description = {
                     "title": selected_job["title"],
                     "required_skills": selected_job["requirements"]["required_skills"]
@@ -151,11 +146,9 @@ def render_candidates_page():
                 st.write("DEBUG RESULT:", result)
 
                 if result.get("ranked_candidates"):
-                    # 🔥 ADD JOB ID TO EACH CANDIDATE
                     for c in result["ranked_candidates"]:
                         c["job_id"] = selected_job_id
 
-                    # 🔥 STORE IN SESSION
                     existing = st.session_state.get("candidates", [])
                     st.session_state["candidates"] = existing + result["ranked_candidates"]
 

@@ -1,22 +1,21 @@
-
-
 import streamlit as st
 from storage.jobs_db import get_jobs
 
-def render_home_page():
-    col1, col2 = st.columns([8, 1])
-    with col2:
-        if st.button("🏠 Home"):
-            st.session_state["page"] = "Home"
-        st.rerun()
 
-    # 🔥 GLOBAL HOME BUTTON (kept for consistency)
+def render_home_page():
+
+    # =========================
+    # GLOBAL HOME BUTTON (FIXED)
+    # =========================
     col1, col2 = st.columns([8, 1])
     with col2:
         if st.button("🏠 Home"):
             st.session_state["page"] = "Home"
             st.rerun()
 
+    # =========================
+    # MAIN UI
+    # =========================
     st.title("🏠 Dashboard Overview")
     st.markdown("Welcome to the Intelligent Recruitment & Talent Matching System")
 
@@ -33,9 +32,15 @@ def render_home_page():
 
     st.markdown("---")
 
+    # =========================
+    # EMPTY STATE
+    # =========================
     if len(jobs) == 0 and len(candidates) == 0:
         st.info("👋 Welcome! Start by creating your first job and uploading resumes.")
 
+    # =========================
+    # QUICK ACTIONS
+    # =========================
     st.markdown("### ⚡ Quick Actions")
 
     col1, col2, col3, col4 = st.columns(4)

@@ -1,5 +1,3 @@
-
-
 """
 Jobs page for managing job descriptions (SQLite version)
 """
@@ -7,10 +5,9 @@ Jobs page for managing job descriptions (SQLite version)
 import streamlit as st
 from datetime import datetime
 
-# ✅ DATABASE IMPORTS
 from storage.jobs_db import init_db, save_job, get_jobs, delete_job
 
-# 🔥 Initialize DB once
+# ✅ Initialize DB once
 init_db()
 
 
@@ -18,12 +15,10 @@ init_db()
 # MAIN PAGE
 # =========================
 def render_jobs_page():
-    col1, col2 = st.columns([8, 1])
-    with col2:
-        if st.button("🏠 Home"):
-            st.session_state["page"] = "Home"
-        st.rerun()
 
+    # =========================
+    # GLOBAL HOME BUTTON (FIXED)
+    # =========================
     col1, col2 = st.columns([8, 1])
     with col2:
         if st.button("🏠 Home"):
@@ -111,10 +106,8 @@ def render_create_job():
                 "created_at": datetime.now().isoformat()
             }
 
-            # ✅ SAVE TO DATABASE (NOT JSON)
             save_job(job_data)
 
-            # clear edit state
             if "edit_job" in st.session_state:
                 del st.session_state["edit_job"]
 
@@ -123,12 +116,11 @@ def render_create_job():
 
 
 # =========================
-# ACTIVE JOBS (DB VERSION)
+# ACTIVE JOBS
 # =========================
 def render_active_jobs():
     st.subheader("Active Jobs")
 
-    # ✅ LOAD FROM DATABASE
     jobs = get_jobs()
 
     if not jobs:
@@ -147,13 +139,11 @@ def render_active_jobs():
                 st.metric("Skills", len(job["requirements"]["required_skills"]))
 
             with col3:
-                # ✏️ EDIT
                 if st.button("✏️ Edit", key=f"edit_{job['id']}_{i}"):
                     st.session_state["edit_job"] = job
                     st.rerun()
 
             with col4:
-                # ❌ DELETE (DB)
                 if st.button("❌ Delete", key=f"delete_{job['id']}_{i}"):
                     delete_job(job["id"])
                     st.success(f"🗑️ Deleted {job['title']}")
