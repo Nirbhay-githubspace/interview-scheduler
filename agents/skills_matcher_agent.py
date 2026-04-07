@@ -57,14 +57,13 @@ class SkillsMatcherAgent(BaseAgent):
 
         return {
             "status": "success",
-            "match_score": score,
+            "match_score": score,  # ✅ THIS MUST MATCH ORCHESTRATOR
             "matched_skills": matched,
             "missing_skills": missing,
-            "transferable_skills": candidate_skills,
-            "rationale": "Enhanced skill + synonym matching",
-            "recommendation": self._determine_recommendation(score * 100),
-            "detailed_breakdown": {}
+            "rationale": "Improved matching",
+            "recommendation": self._determine_recommendation(score * 100)
         }
+        
 
     def _determine_recommendation(self, match_percentage: float) -> str:
         if match_percentage >= 80:
