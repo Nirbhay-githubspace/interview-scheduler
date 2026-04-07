@@ -1,6 +1,7 @@
 import streamlit as st
 from storage.jobs_db import get_jobs
 
+
 def render_home_page():
     """Render clean, real dashboard"""
 
@@ -10,7 +11,7 @@ def render_home_page():
     st.markdown("---")
 
     # =========================
-    # REAL METRICS (NO FAKE DATA)
+    # REAL METRICS
     # =========================
     jobs = get_jobs()
     candidates = st.session_state.get("candidates", [])
@@ -29,13 +30,13 @@ def render_home_page():
     st.markdown("---")
 
     # =========================
-    # EMPTY STATE / ONBOARDING
+    # EMPTY STATE
     # =========================
     if len(jobs) == 0 and len(candidates) == 0:
         st.info("👋 Welcome! Start by creating your first job and uploading resumes.")
 
     # =========================
-    # RECENT ACTIVITY (CLEAN)
+    # RECENT ACTIVITY
     # =========================
     st.markdown("### 📋 Recent Activity")
 
@@ -47,7 +48,7 @@ def render_home_page():
     st.markdown("---")
 
     # =========================
-    # QUICK ACTIONS
+    # QUICK ACTIONS (FIXED)
     # =========================
     st.markdown("### ⚡ Quick Actions")
 
@@ -55,28 +56,28 @@ def render_home_page():
 
     with col1:
         if st.button("📤 Upload Resumes", use_container_width=True):
-            st.session_state['page'] = 'candidates'
+            st.session_state["page"] = "Candidates"
             st.rerun()
 
     with col2:
         if st.button("➕ Create Job", use_container_width=True):
-            st.session_state['page'] = 'jobs'
+            st.session_state["page"] = "Jobs"
             st.rerun()
 
     with col3:
         if st.button("👥 View Candidates", use_container_width=True):
-            st.session_state['page'] = 'candidates'
+            st.session_state["page"] = "Candidates"
             st.rerun()
 
     with col4:
         if st.button("📅 View Interviews", use_container_width=True):
-            st.session_state['page'] = 'interviews'
+            st.session_state["page"] = "Interviews"
             st.rerun()
 
     st.markdown("---")
 
     # =========================
-    # SYSTEM STATUS (STATIC BUT CLEAN)
+    # SYSTEM STATUS
     # =========================
     st.markdown("### 🔧 System Status")
 
