@@ -52,7 +52,7 @@ if "page" not in st.session_state:
     st.session_state["page"] = "Home"
 
 # =========================
-# SIDEBAR (SYNCED)
+# SIDEBAR (FIXED - NO LOOP)
 # =========================
 with st.sidebar:
 
@@ -70,9 +70,8 @@ with st.sidebar:
         key="sidebar_nav"
     )
 
-    if selected_page != st.session_state["page"]:
-        st.session_state["page"] = selected_page
-        st.rerun()
+    # ✅ SAFE: no rerun loop
+    st.session_state["page"] = selected_page
 
     st.divider()
 
