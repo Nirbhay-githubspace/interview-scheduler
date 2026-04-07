@@ -11,11 +11,27 @@ def render_candidates_page():
     with tab1:
         st.subheader("Candidate Rankings")
 
-        candidates = st.session_state.get("candidates", [])
+        all_candidates = st.session_state.get("candidates", [])
 
-        if not candidates:
+        if not all_candidates:
             st.info("No candidates yet. Upload resumes to see results.")
         else:
+            # 🔥 FILTER BY JOB
+            job_ids = list(set(c.get("job_id", "Unknown") for c in all_candidates))
+
+            selected_job_filter = st.selectbox(
+                "Filter by Job",
+                options=["All"] + job_ids
+            )
+
+            if selected_job_filter == "All":
+                candidates = all_candidates
+            else:
+                candidates = [
+                    c for c in all_candidates
+                    if c.get("job_id") == selected_job_filter
+                ]
+
             # sort by score
             candidates = sorted(
                 candidates,
@@ -23,31 +39,51 @@ def render_candidates_page():
                 reverse=True
             )
 
-            # 🏆 top candidate
-            top = candidates[0]
-            st.success(f"🏆 Top Candidate: {top.get('name', 'Unknown')}")
+            if candidates:
+                top = candidates[0]
+                st.success(f"🏆 Top Candidate: {top.get('name', 'Unknown')}")
 
             for c in candidates:
                 st.markdown("---")
 
-                # ✅ FIX: correct name extraction
                 name = c.get("name") or \
                        c.get("candidate_data", {}).get("personal_info", {}).get("name", "Unknown")
 
                 email = c.get("email", "N/A")
                 score = c.get("overall_score", 0)
+                job_id = c.get("job_id", "N/A")
 
                 st.subheader(name)
                 st.write(f"📧 {email}")
+                st.write(f"💼 Job ID: {job_id}")
                 st.write(f"⭐ Score: {score}%")
 
                 st.progress(score / 100)
 
     # =========================
-    # TAB 2: UPLOAD (KEEP YOUR EXISTING CODE)
+    # TAB 2: UPLOAD RESUMES
     # =========================
     with tab2:
         st.subheader("Upload Resumes")
+
+        # 🔥 LOAD JOBS FROM DATABASE
+        from storage.jobs_db import get_jobs
+
+        jobs = get_jobs()
+
+        if not jobs:
+            st.warning("⚠️ No jobs found. Please create a job first.")
+            return
+
+        job_map = {job["id"]: job for job in jobs}
+
+        selected_job_id = st.selectbox(
+            "Select Job",
+            options=list(job_map.keys()),
+            format_func=lambda x: job_map[x]["title"]
+        )
+
+        selected_job = job_map[selected_job_id]
 
         uploaded_files = st.file_uploader(
             "Upload resumes",
@@ -82,14 +118,18 @@ def render_candidates_page():
                         "resume_content": text
                     })
 
+                # 🔥 USE REAL JOB DATA
+                job_description = {
+                    "title": selected_job["title"],
+                    "required_skills": selected_job["requirements"]["required_skills"]
+                }
+
                 orchestrator = OrchestratorAgent()
 
                 async def run():
                     return await orchestrator.process({
                         "resumes": resumes,
-                        "job_description": {
-                            "required_skills": ["Python", "AWS", "Docker"]
-                        }
+                        "job_description": job_description
                     })
 
                 result = asyncio.run(run())
@@ -97,7 +137,13 @@ def render_candidates_page():
                 st.write("DEBUG RESULT:", result)
 
                 if result.get("ranked_candidates"):
-                    st.session_state["candidates"] = result["ranked_candidates"]
+                    # 🔥 ADD JOB ID TO EACH CANDIDATE
+                    for c in result["ranked_candidates"]:
+                        c["job_id"] = selected_job_id
+
+                    # 🔥 STORE IN SESSION
+                    existing = st.session_state.get("candidates", [])
+                    st.session_state["candidates"] = existing + result["ranked_candidates"]
 
                     st.success("✅ Candidates stored successfully")
                     st.rerun()
